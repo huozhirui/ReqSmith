@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "ReqSmith",
+  "version": "1.0",
+  "description": "轻量级请求拦截与 Mock 插件，支持多规则、提示与自定义响应。",
+  "author": "yeoh",
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": "icon.png",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_origin_as_fallback": true
+    }
+  ],
+  "permissions": ["storage", "declarativeNetRequest", "notifications"],
+  "host_permissions": ["<all_urls>"],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

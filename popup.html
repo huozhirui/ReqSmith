@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>popup</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        width: 520px;
+        min-height: 140px;
+        margin: 0;
+        padding: 16px;
+        font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+        background: #f3f0ea;
+        color: #1d1c1a;
+      }
+      h1 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        letter-spacing: 0.5px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: #3a362f;
+      }
+      input[type="text"],
+      input[type="number"],
+      textarea,
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #c9c3ba;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
+        background: #fffdf9;
+      }
+      textarea {
+        height: 120px;
+        resize: vertical;
+        font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+      }
+      .col {
+        flex: 1;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      button {
+        border: none;
+        background: #2a6f5a;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button.secondary {
+        background: #6f6659;
+      }
+      .note {
+        font-size: 11px;
+        color: #5a554c;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>请求拦截与Mock</h1>
+    <div class="row">
+      <div class="col">
+        <label>规则列表</label>
+        <div id="ruleList" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label for="ruleName">规则名称</label>
+        <input id="ruleName" type="text" placeholder="埋点拦截" />
+      </div>
+      <div class="col">
+        <label for="method">HTTP Method</label>
+        <select id="method">
+          <option value="ANY">ANY</option>
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+          <option value="PUT">PUT</option>
+          <option value="DELETE">DELETE</option>
+          <option value="PATCH">PATCH</option>
+          <option value="HEAD">HEAD</option>
+          <option value="OPTIONS">OPTIONS</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label for="urlPattern">URL 规则（支持*通配符；或用 re: 前缀正则）</label>
+        <textarea id="urlPattern" placeholder="https://api.example.com/v1/*"></textarea>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label for="statusCode">HTTP 状态码（说明用）</label>
+        <input id="statusCode" type="number" min="100" max="599" placeholder="200" />
+      </div>
+      <div class="col">
+        <label for="enabled">启用</label>
+        <input id="enabled" type="checkbox" />
+      </div>
+      <div class="col">
+        <label for="notify">拦截弹框</label>
+        <input id="notify" type="checkbox" />
+      </div>
+      <div class="col">
+        <label for="blockNetwork">阻止真实请求</label>
+        <input id="blockNetwork" type="checkbox" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label for="debug">Debug 输出</label>
+        <input id="debug" type="checkbox" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label for="body">返回 JSON</label>
+        <textarea id="body" placeholder='{"ok":true}'></textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="add">新增规则</button>
+      <button id="save">保存当前规则</button>
+      <button id="remove" class="secondary">删除当前规则</button>
+      <span id="status" class="note"></span>
+      <span class="note">Chrome 限制：实际响应码固定 200，状态码仅记录在配置中。</span>
+    </div>
+    <script type="text/javascript" src="popup.js"></script>
+  </body>
+</html>
