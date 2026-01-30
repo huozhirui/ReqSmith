@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DNS 替换</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+        background: #f3f0ea;
+        color: #1d1c1a;
+      }
+      h1 {
+        margin: 0 0 12px 0;
+        font-size: 20px;
+        letter-spacing: 0.4px;
+      }
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .col {
+        flex: 1;
+        min-width: 220px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: #3a362f;
+      }
+      input[type="text"],
+      input[type="number"],
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #c9c3ba;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
+        background: #fffdf9;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: none;
+        background: #2a6f5a;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button.secondary {
+        background: #6f6659;
+      }
+      .note {
+        font-size: 11px;
+        color: #5a554c;
+      }
+      .rule-list {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .hint {
+        font-size: 12px;
+        color: #5a554c;
+        margin-bottom: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>DNS 替换</h1>
+      <div class="hint">仅对浏览器请求生效，等价于请求重定向，不会修改系统 DNS。</div>
+      <div class="row">
+        <div class="col">
+          <label>规则列表</label>
+          <div id="ruleList" class="rule-list"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="ruleName">规则名称</label>
+          <input id="ruleName" type="text" placeholder="本地联调" />
+        </div>
+        <div class="col">
+          <label for="matchType">匹配类型</label>
+          <select id="matchType">
+            <option value="domain">域名（含子域）</option>
+            <option value="domainPort">域名 + 端口</option>
+            <option value="url">URL 规则（支持 * 或 re: 正则）</option>
+          </select>
+        </div>
+        <div class="col">
+          <label for="enabled">启用</label>
+          <input id="enabled" type="checkbox" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="source">源（域名或 URL 规则）</label>
+          <input id="source" type="text" placeholder="example.com / https://api.example.com/*" />
+        </div>
+        <div class="col" id="sourcePortWrap">
+          <label for="sourcePort">源端口（仅域名+端口）</label>
+          <input id="sourcePort" type="number" min="1" max="65535" placeholder="8080" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="targetHost">目标 Host/IP</label>
+          <input id="targetHost" type="text" placeholder="127.0.0.1" />
+        </div>
+        <div class="col">
+          <label for="targetPort">目标端口（可选）</label>
+          <input id="targetPort" type="number" min="1" max="65535" placeholder="3000" />
+        </div>
+        <div class="col">
+          <label for="targetScheme">目标协议</label>
+          <select id="targetScheme">
+            <option value="keep">保持不变</option>
+            <option value="http">http</option>
+            <option value="https">https</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="add">新增规则</button>
+        <button id="save">保存当前规则</button>
+        <button id="remove" class="secondary">删除当前规则</button>
+        <button id="openMock" class="secondary">返回 Mock</button>
+        <span id="status" class="note"></span>
+        <span class="note">示例：example.com -> 127.0.0.1</span>
+      </div>
+    </div>
+    <script type="text/javascript" src="dns.js"></script>
+  </body>
+</html>

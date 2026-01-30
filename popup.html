@@ -8,7 +8,7 @@
         color-scheme: light;
       }
       body {
-        width: 520px;
+        width: 560px;
         min-height: 140px;
         margin: 0;
         padding: 16px;
@@ -21,10 +21,36 @@
         font-size: 18px;
         letter-spacing: 0.5px;
       }
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .tab {
+        border: none;
+        background: #6f6659;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        opacity: 0.7;
+      }
+      .tab.active {
+        background: #2a6f5a;
+        opacity: 1;
+      }
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
       .row {
         display: flex;
         gap: 10px;
         margin-bottom: 10px;
+        flex-wrap: wrap;
       }
       label {
         display: block;
@@ -51,11 +77,13 @@
       }
       .col {
         flex: 1;
+        min-width: 160px;
       }
       .actions {
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-wrap: wrap;
       }
       button {
         border: none;
@@ -73,78 +101,164 @@
         font-size: 11px;
         color: #5a554c;
       }
+      .rule-list {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
     </style>
   </head>
   <body>
-    <h1>请求拦截与Mock</h1>
-    <div class="row">
-      <div class="col">
-        <label>规则列表</label>
-        <div id="ruleList" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+    <h1>ReqSmith</h1>
+    <div class="tabs">
+      <button id="tabMock" class="tab active">Mock</button>
+      <button id="tabDns" class="tab">DNS 替换</button>
+    </div>
+
+    <div id="panelMock" class="panel active">
+      <div class="row">
+        <div class="col">
+          <label>规则列表</label>
+          <div id="ruleList" class="rule-list"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="ruleName">规则名称</label>
+          <input id="ruleName" type="text" placeholder="埋点拦截" />
+        </div>
+        <div class="col">
+          <label for="method">HTTP Method</label>
+          <select id="method">
+            <option value="ANY">ANY</option>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PATCH">PATCH</option>
+            <option value="HEAD">HEAD</option>
+            <option value="OPTIONS">OPTIONS</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="urlPattern">URL 规则（支持*通配符；或用 re: 前缀正则）</label>
+          <textarea id="urlPattern" placeholder="https://api.example.com/v1/*"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="statusCode">HTTP 状态码（说明用）</label>
+          <input id="statusCode" type="number" min="100" max="599" placeholder="200" />
+        </div>
+        <div class="col">
+          <label for="enabled">启用</label>
+          <input id="enabled" type="checkbox" />
+        </div>
+        <div class="col">
+          <label for="notify">拦截弹框</label>
+          <input id="notify" type="checkbox" />
+        </div>
+        <div class="col">
+          <label for="blockNetwork">阻止真实请求</label>
+          <input id="blockNetwork" type="checkbox" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="debug">Debug 输出</label>
+          <input id="debug" type="checkbox" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="body">返回 JSON</label>
+          <textarea id="body" placeholder='{"ok":true}'></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="add">新增规则</button>
+        <button id="save">保存当前规则</button>
+        <button id="remove" class="secondary">删除当前规则</button>
+        <span id="status" class="note"></span>
+        <span class="note">Chrome 限制：实际响应码固定 200，状态码仅记录在配置中。</span>
       </div>
     </div>
-    <div class="row">
-      <div class="col">
-        <label for="ruleName">规则名称</label>
-        <input id="ruleName" type="text" placeholder="埋点拦截" />
+
+    <div id="panelDns" class="panel">
+      <div class="row">
+        <div class="col">
+          <label>规则列表</label>
+          <div id="dnsRuleList" class="rule-list"></div>
+        </div>
       </div>
-      <div class="col">
-        <label for="method">HTTP Method</label>
-        <select id="method">
-          <option value="ANY">ANY</option>
-          <option value="GET">GET</option>
-          <option value="POST">POST</option>
-          <option value="PUT">PUT</option>
-          <option value="DELETE">DELETE</option>
-          <option value="PATCH">PATCH</option>
-          <option value="HEAD">HEAD</option>
-          <option value="OPTIONS">OPTIONS</option>
-        </select>
+      <div class="row">
+        <div class="col">
+          <label for="dnsRuleName">规则名称</label>
+          <input id="dnsRuleName" type="text" placeholder="本地联调" />
+        </div>
+        <div class="col">
+          <label for="dnsMatchType">匹配类型</label>
+          <select id="dnsMatchType">
+            <option value="domain">域名（含子域）</option>
+            <option value="domainPort">域名 + 端口</option>
+            <option value="url">URL 规则（支持 * 或 re: 正则）</option>
+          </select>
+        </div>
+        <div class="col">
+          <label for="dnsEnabled">启用</label>
+          <input id="dnsEnabled" type="checkbox" />
+        </div>
       </div>
+      <div class="row">
+        <div class="col">
+          <label for="dnsSource">源（域名或 URL 规则）</label>
+          <input id="dnsSource" type="text" placeholder="example.com / https://api.example.com/*" />
+        </div>
+        <div class="col" id="dnsSourcePortWrap">
+          <label for="dnsSourcePort">源端口（仅域名+端口）</label>
+          <input id="dnsSourcePort" type="number" min="1" max="65535" placeholder="8080" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="dnsTargetHost">目标 Host/IP</label>
+          <input id="dnsTargetHost" type="text" placeholder="127.0.0.1" />
+        </div>
+        <div class="col">
+          <label for="dnsTargetPort">目标端口（可选）</label>
+          <input id="dnsTargetPort" type="number" min="1" max="65535" placeholder="3000" />
+        </div>
+        <div class="col">
+          <label for="dnsTargetScheme">目标协议</label>
+          <select id="dnsTargetScheme">
+            <option value="keep">保持不变</option>
+            <option value="http">http</option>
+            <option value="https">https</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label for="dnsTestUrl">测试 URL</label>
+          <input id="dnsTestUrl" type="text" placeholder="http://tape-ops.baidu-int.com:8210" />
+        </div>
+        <div class="col" style="max-width:160px; align-self:flex-end;">
+          <button id="dnsTest" class="secondary">测试匹配</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="dnsAdd">新增规则</button>
+        <button id="dnsSave">保存当前规则</button>
+        <button id="dnsRemove" class="secondary">删除当前规则</button>
+        <button id="dnsDump" class="secondary">查看生效规则</button>
+        <span id="dnsStatus" class="note"></span>
+        <span class="note">仅对浏览器请求生效，不会修改系统 DNS。</span>
+      </div>
+      <pre id="dnsRulesView" class="note" style="white-space: pre-wrap; margin: 10px 0 0;"></pre>
     </div>
-    <div class="row">
-      <div class="col">
-        <label for="urlPattern">URL 规则（支持*通配符；或用 re: 前缀正则）</label>
-        <textarea id="urlPattern" placeholder="https://api.example.com/v1/*"></textarea>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col">
-        <label for="statusCode">HTTP 状态码（说明用）</label>
-        <input id="statusCode" type="number" min="100" max="599" placeholder="200" />
-      </div>
-      <div class="col">
-        <label for="enabled">启用</label>
-        <input id="enabled" type="checkbox" />
-      </div>
-      <div class="col">
-        <label for="notify">拦截弹框</label>
-        <input id="notify" type="checkbox" />
-      </div>
-      <div class="col">
-        <label for="blockNetwork">阻止真实请求</label>
-        <input id="blockNetwork" type="checkbox" />
-      </div>
-    </div>
-    <div class="row">
-      <div class="col">
-        <label for="debug">Debug 输出</label>
-        <input id="debug" type="checkbox" />
-      </div>
-    </div>
-    <div class="row">
-      <div class="col">
-        <label for="body">返回 JSON</label>
-        <textarea id="body" placeholder='{"ok":true}'></textarea>
-      </div>
-    </div>
-    <div class="actions">
-      <button id="add">新增规则</button>
-      <button id="save">保存当前规则</button>
-      <button id="remove" class="secondary">删除当前规则</button>
-      <span id="status" class="note"></span>
-      <span class="note">Chrome 限制：实际响应码固定 200，状态码仅记录在配置中。</span>
-    </div>
+
     <script type="text/javascript" src="popup.js"></script>
   </body>
 </html>

@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'mockRules';
+const DNS_KEY = 'dnsRules';
 
 let currentRules = [];
+let currentDnsRules = [];
 let currentRuleIds = [];
 const lastNotified = new Map();
 let isUpdatingRules = false;
@@ -16,16 +18,16 @@ function generateId(usedIds) {
   return nextId;
 }
 
-function normalizeRule(rule) {
+function normalizeMockRule(rule) {
   const parsedId = Number.parseInt(rule && rule.id, 10);
   const inRange = Number.isInteger(parsedId) && parsedId > 0 && parsedId <= 2147483647;
-  const usedIds = normalizeRule.usedIds || new Set();
+  const usedIds = normalizeMockRule.usedIds || new Set();
   let safeId = inRange ? parsedId : generateId(usedIds);
   while (usedIds.has(safeId)) {
     safeId = generateId(usedIds);
   }
   usedIds.add(safeId);
-  normalizeRule.usedIds = usedIds;
+  normalizeMockRule.usedIds = usedIds;
   return {
     id: safeId,
     enabled: Boolean(rule && rule.enabled),
@@ -40,26 +42,62 @@ function normalizeRule(rule) {
   };
 }
 
-function normalizeRules(list) {
+function normalizeMockRules(list) {
   if (!Array.isArray(list)) {
     return [];
   }
-  normalizeRule.usedIds = new Set();
-  const normalized = list.map((item) => normalizeRule(item));
-  normalizeRule.usedIds = null;
+  normalizeMockRule.usedIds = new Set();
+  const normalized = list.map((item) => normalizeMockRule(item));
+  normalizeMockRule.usedIds = null;
   return normalized;
 }
 
-function loadRule() {
-  chrome.storage.sync.get(STORAGE_KEY, (data) => {
+function normalizeDnsRule(rule, usedIds) {
+  const parsedId = Number.parseInt(rule && rule.id, 10);
+  const inRange = Number.isInteger(parsedId) && parsedId > 0 && parsedId <= 2147483647;
+  let safeId = inRange ? parsedId : generateId(usedIds);
+  while (usedIds.has(safeId)) {
+    safeId = generateId(usedIds);
+  }
+  usedIds.add(safeId);
+  return {
+    id: safeId,
+    enabled: Boolean(rule && rule.enabled),
+    name: (rule && rule.name) || '',
+    matchType: (rule && rule.matchType) || 'domain',
+    source: (rule && rule.source) || '',
+    sourcePort: (rule && rule.sourcePort) || '',
+    targetHost: (rule && rule.targetHost) || '',
+    targetPort: (rule && rule.targetPort) || '',
+    targetScheme: (rule && rule.targetScheme) || 'keep'
+  };
+}
+
+function normalizeDnsRules(list) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  const usedIds = new Set();
+  return list.map((item) => normalizeDnsRule(item, usedIds));
+}
+
+function loadRules() {
+  chrome.storage.sync.get([STORAGE_KEY, DNS_KEY], (data) => {
     const rawRules = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
-    currentRules = normalizeRules(rawRules);
-    const normalizedString = JSON.stringify(currentRules);
-    const rawString = JSON.stringify(rawRules);
-    if (normalizedString !== rawString) {
-      chrome.storage.sync.set({ [STORAGE_KEY]: currentRules });
+    const rawDnsRules = Array.isArray(data[DNS_KEY]) ? data[DNS_KEY] : [];
+    currentRules = normalizeMockRules(rawRules);
+    currentDnsRules = normalizeDnsRules(rawDnsRules);
+    const updates = {};
+    if (JSON.stringify(currentRules) !== JSON.stringify(rawRules)) {
+      updates[STORAGE_KEY] = currentRules;
     }
-    syncRules(currentRules);
+    if (JSON.stringify(currentDnsRules) !== JSON.stringify(rawDnsRules)) {
+      updates[DNS_KEY] = currentDnsRules;
+    }
+    if (Object.keys(updates).length > 0) {
+      chrome.storage.sync.set(updates);
+    }
+    syncRules();
   });
 }
 
@@ -83,7 +121,7 @@ function buildDataUrl(bodyText) {
   return `data:application/json;charset=utf-8,${encodeURIComponent(payload)}`;
 }
 
-function buildRule(rule, dynamicId) {
+function buildBlockRule(rule, dynamicId) {
   if (!rule.enabled || !rule.urlPattern) {
     return null;
   }
@@ -110,8 +148,84 @@ function buildRule(rule, dynamicId) {
   };
 }
 
-function syncRules(rules) {
-  pendingRules = rules;
+function escapeRegex(text) {
+  return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildDnsCondition(rule) {
+  if (rule.matchType === 'url') {
+    const source = String(rule.source || '').trim();
+    if (!source) {
+      return null;
+    }
+    if (!source.startsWith('re:') && !source.includes('*') && (/^https?:\/\//i).test(source)) {
+      const escaped = escapeRegex(source);
+      return { regexFilter: `^${escaped}(/|$)` };
+    }
+    const matcher = buildMatcher(source);
+    if (!matcher) {
+      return null;
+    }
+    if (matcher.type === 'regex') {
+      return { regexFilter: matcher.value };
+    }
+    return { urlFilter: matcher.value };
+  }
+  const domain = String(rule.source || '').trim();
+  if (!domain) {
+    return null;
+  }
+  const port = String(rule.sourcePort || '').trim();
+  if (rule.matchType === 'domainPort') {
+    if (!port) {
+      return null;
+    }
+    return { urlFilter: `${domain}:${port}` };
+  }
+  return { urlFilter: domain };
+}
+
+
+function buildDnsRule(rule, dynamicId) {
+  if (!rule.enabled) {
+    return null;
+  }
+  const targetHost = String(rule.targetHost || '').trim();
+  if (!targetHost) {
+    return null;
+  }
+  const condition = buildDnsCondition(rule);
+  if (!condition) {
+    return null;
+  }
+  const transform = {
+    host: targetHost
+  };
+  if (rule.targetScheme && rule.targetScheme !== 'keep') {
+    transform.scheme = rule.targetScheme;
+  }
+  if (rule.targetPort) {
+    transform.port = String(rule.targetPort);
+  }
+  return {
+    id: dynamicId,
+    priority: 2,
+    action: {
+      type: 'redirect',
+      redirect: { transform }
+    },
+    condition: {
+      ...condition,
+      resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest', 'other']
+    }
+  };
+}
+
+function syncRules() {
+  pendingRules = {
+    mock: currentRules,
+    dns: currentDnsRules
+  };
   if (isUpdatingRules) {
     return;
   }
@@ -120,14 +234,21 @@ function syncRules(rules) {
 }
 
 function applyRules() {
-  const rules = pendingRules || [];
+  const rules = pendingRules || { mock: currentRules, dns: currentDnsRules };
   pendingRules = null;
   chrome.declarativeNetRequest.getDynamicRules((existingRules) => {
     const existingIds = Array.isArray(existingRules) ? existingRules.map((rule) => rule.id) : [];
     const nextRules = [];
     let dynamicId = 1;
-    rules.forEach((rule) => {
-      const built = buildRule(rule, dynamicId);
+    rules.mock.forEach((rule) => {
+      const built = buildBlockRule(rule, dynamicId);
+      if (built) {
+        nextRules.push(built);
+        dynamicId += 1;
+      }
+    });
+    rules.dns.forEach((rule) => {
+      const built = buildDnsRule(rule, dynamicId);
       if (built) {
         nextRules.push(built);
         dynamicId += 1;
@@ -199,14 +320,24 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     const rawRules = Array.isArray(changes[STORAGE_KEY].newValue)
       ? changes[STORAGE_KEY].newValue
       : [];
-    currentRules = normalizeRules(rawRules);
+    currentRules = normalizeMockRules(rawRules);
     const normalizedString = JSON.stringify(currentRules);
     const rawString = JSON.stringify(rawRules);
     if (normalizedString !== rawString) {
       chrome.storage.sync.set({ [STORAGE_KEY]: currentRules });
     }
-    syncRules(currentRules);
+    syncRules();
+  }
+  if (changes[DNS_KEY]) {
+    const rawDnsRules = Array.isArray(changes[DNS_KEY].newValue) ? changes[DNS_KEY].newValue : [];
+    currentDnsRules = normalizeDnsRules(rawDnsRules);
+    const normalizedDnsString = JSON.stringify(currentDnsRules);
+    const rawDnsString = JSON.stringify(rawDnsRules);
+    if (normalizedDnsString !== rawDnsString) {
+      chrome.storage.sync.set({ [DNS_KEY]: currentDnsRules });
+    }
+    syncRules();
   }
 });
 
-loadRule();
+loadRules();
